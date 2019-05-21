@@ -17,8 +17,6 @@ NOTE: You should run kustomize-graph in the same working directory as you would 
 
 ## Example
 
-Simplest
-
 Given the following file structure
 
 > ```
@@ -32,3 +30,21 @@ Given the following file structure
 Would result in the following dependency graph
 
 ![simple](images/simple_example.png)
+
+Another example, using the multibases example from kustomize
+
+> ```
+> .
+> ├── base
+> │   ├── kustomization.yaml
+> │   └── pod.yaml
+> ├── dev
+> │   └── kustomization.yaml
+> ├── kustomization.yaml
+> ├── production
+> │   └── kustomization.yaml
+> └── staging
+>     └── kustomization.yaml
+> ```
+
+![multibases](images/multibase_example.png)
