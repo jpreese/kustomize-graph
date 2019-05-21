@@ -29,6 +29,12 @@ func main() {
 		return
 	}
 
+	err = gographviz.Analyse(graphAst, graph)
+	if err != nil {
+		log.Fatal("Unable to initialize dependency graph")
+		return
+	}
+
 	err = generateKustomizeGraph(currentWorkingDirectory, currentWorkingDirectory)
 	if err != nil {
 		fmt.Println(err)
@@ -39,9 +45,6 @@ func main() {
 }
 
 func generateKustomizeGraph(currentPath string, parent string) error {
-	if err := gographviz.Analyse(graphAst, graph); err != nil {
-		panic(err)
-	}
 
 	kustomizationFilePath, err := findKustomizationFile(currentPath)
 	if err != nil {
