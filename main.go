@@ -26,15 +26,15 @@ var KustomizeGraph = gographviz.NewGraph()
 
 func main() {
 
-	currentWorkingDirectory, err := os.Getwd()
-	if err != nil {
-		log.Fatal("Unable to get current working directory")
-		return
-	}
-
 	graphAst, _ := gographviz.ParseString(`digraph main {}`)
 	if err := gographviz.Analyse(graphAst, KustomizeGraph); err != nil {
 		log.Fatal("Unable to initialize graph")
+		return
+	}
+
+	currentWorkingDirectory, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Unable to get current working directory")
 		return
 	}
 
@@ -60,10 +60,6 @@ func generateKustomizeGraph(currentPath string) error {
 	// are not in the bases section. This typically includes:
 	// resources and patches where recursion isn't needed.
 	handleRelativeResources(kustomizationFile, currentPath, parentNode)
-
-	if len(kustomizationFile.Bases) == 0 {
-		return nil
-	}
 	
 	// When the kustomization file includes one or more bases
 	// we need to recursively call the generateKustomizeGraph method
