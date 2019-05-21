@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/awalterschulze/gographviz"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"strings"
 )
 
+// KustomizationFileStructure represents the available attributes in the kustomization yaml file
 type KustomizationFileStructure struct {
 	Bases     []string `yaml:"bases"`
 	Resources []string `yaml:"resources"`
@@ -27,30 +29,32 @@ func main() {
 		return
 	}
 
-	generateKustomizeGraph(currentWorkingDirectory, currentWorkingDirectory)
+	err = generateKustomizeGraph(currentWorkingDirectory, currentWorkingDirectory)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	fmt.Print(graph.String())
 }
 
-func generateKustomizeGraph(currentPath string, parent string) {
+func generateKustomizeGraph(currentPath string, parent string) error {
 	if err := gographviz.Analyse(graphAst, graph); err != nil {
 		panic(err)
 	}
 
 	kustomizationFilePath, err := findKustomizationFile(currentPath)
 	if err != nil {
-		log.Fatalf("Could not find kustomization file in path %s", currentPath)
-		return
+		return errors.Wrapf(err, "Could not find kustomization file in path %s", currentPath)
 	}
 
 	kustomizationFile, err := readKustomizationFile(kustomizationFilePath)
 	if err != nil {
-		log.Fatalf("Could not read kustomization file in path %s", currentPath)
-		return
+		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
 	}
 
 	if len(kustomizationFile.Bases) == 0 {
-		return
+		return nil
 	}
 
 	parentNode := pathToGraphNode(kustomizationFilePath)
@@ -71,6 +75,8 @@ func generateKustomizeGraph(currentPath string, parent string) {
 
 		generateKustomizeGraph(absoluteBasePath, kustomizationFilePath)
 	}
+
+	return nil
 }
 
 func pathToGraphNode(path string) string {
@@ -91,8 +97,7 @@ func findKustomizationFile(searchPath string) (string, error) {
 
 	filesInCurrentDirectory, err := ioutil.ReadDir(searchPath)
 	if err != nil {
-		log.Fatalf("Unable to read directory %s (%s)", searchPath, err.Error())
-		return "", err
+		return "", errors.Wrapf(err, "Unable to read directory %s", searchPath)
 	}
 
 	foundKustomizeFile := false
@@ -108,8 +113,7 @@ func findKustomizationFile(searchPath string) (string, error) {
 	}
 
 	if !foundKustomizeFile {
-		log.Fatalf("Unable to find kustomization file in path %s", searchPath)
-		return "", err
+		return "", errors.Wrapf(err, "Unable to find kustomization file in path %s", searchPath)
 	}
 
 	return path.Join(searchPath, "kustomization.yaml"), nil
@@ -121,14 +125,12 @@ func readKustomizationFile(kustomizationFilePath string) (KustomizationFileStruc
 
 	readKustomizationFile, err := ioutil.ReadFile(kustomizationFilePath)
 	if err != nil {
-		log.Fatal("Unable to read kustomization file")
-		return kustomizationFile, err
+		return kustomizationFile, errors.Wrapf(err, "Could not read file %s", kustomizationFilePath)
 	}
 
 	err = yaml.Unmarshal(readKustomizationFile, &kustomizationFile)
 	if err != nil {
-		log.Fatal("Unable to parse kustomization file")
-		return kustomizationFile, err
+		return kustomizationFile, errors.Wrapf(err, "Could not unmarshal yaml file %s", kustomizationFilePath)
 	}
 
 	return kustomizationFile, nil
