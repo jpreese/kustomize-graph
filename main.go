@@ -16,10 +16,13 @@ import (
 // KustomizationFileStructure represents the available attributes in the kustomization yaml file
 type KustomizationFileStructure struct {
 	Bases   []string `yaml:"bases"`
+	Resources []string `yaml:"resources"`
 	Patches []string `yaml:"patches"`
+	PatchesStrategicMerge []string `yaml:"patchesStrategicMerge"`
 }
 
-var graph = gographviz.NewGraph()
+// KustomizeGraph represents the generated DOT graph 
+var KustomizeGraph = gographviz.NewGraph()
 
 func main() {
 
@@ -30,7 +33,7 @@ func main() {
 	}
 
 	graphAst, _ := gographviz.ParseString(`digraph main {}`)
-	if err := gographviz.Analyse(graphAst, graph); err != nil {
+	if err := gographviz.Analyse(graphAst, KustomizeGraph); err != nil {
 		log.Fatal("Unable to initialize graph")
 		return
 	}
@@ -41,41 +44,67 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Print(graph.String())
+	fmt.Print(KustomizeGraph.String())
 }
 
 func generateKustomizeGraph(currentPath string) error {
-
 	kustomizationFile, err := readKustomizationFile(currentPath)
 	if err != nil {
 		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
 	}
 
+	parentNode := sanitizePathForDot(currentPath)
+	KustomizeGraph.AddNode("main", parentNode, nil)
+
+	// Handle the resources present in the kustomization file that 
+	// are not in the bases section. This typically includes:
+	// resources and patches where recursion isn't needed.
+	handleRelativeResources(kustomizationFile, currentPath, parentNode)
+
 	if len(kustomizationFile.Bases) == 0 {
 		return nil
 	}
-
-	parent := sanitizePathForDot(currentPath)
-	graph.AddNode("main", parent, nil)
-
+	
+	// When the kustomization file includes one or more bases
+	// we need to recursively call the generateKustomizeGraph method
+	// to build out all of the resources present in the base yaml and any
+	// other potential additional bases.
 	for _, base := range kustomizationFile.Bases {
-		handleBase(parent, base, currentPath)
+		absoluteBasePath, _ := filepath.Abs(base)
+		if strings.HasPrefix(base, "..") {
+			absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(currentPath), base))
+		}
+	
+		childNode := sanitizePathForDot(absoluteBasePath)
+		addChildNodeToParent(childNode, parentNode)
+	
+		// Recursively call this method again to resolve additional bases
+		generateKustomizeGraph(absoluteBasePath)
 	}
 
 	return nil
 }
 
-func handleBase(parent string, value string, context string) {
-	absoluteBasePath, _ := filepath.Abs(value)
-	if strings.HasPrefix(value, "..") {
-		absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(context), value))
+func handleRelativeResources(kustomizationFile KustomizationFileStructure, currentPath string, parent string) {
+	for _, resource := range kustomizationFile.Resources {
+		resourceNode := sanitizePathForDot(joinFileNameToPath(currentPath, resource))
+		addChildNodeToParent(resourceNode, parent)
 	}
 
-	child := sanitizePathForDot(absoluteBasePath)
-	graph.AddNode("main", child, nil)
-	graph.AddEdge(parent, child, true, nil)
+	for _, patch := range kustomizationFile.Patches {
+		patchNode := sanitizePathForDot(joinFileNameToPath(currentPath, patch))
+		addChildNodeToParent(patchNode, parent)
+	}
 
-	generateKustomizeGraph(absoluteBasePath)
+	for _, patchStrategicMerge := range kustomizationFile.PatchesStrategicMerge {
+		patchStrategicMergeNode := sanitizePathForDot(joinFileNameToPath(currentPath, patchStrategicMerge))
+		addChildNodeToParent(patchStrategicMergeNode, parent)
+	}
+}
+
+func addChildNodeToParent(childNode string, parentNode string) {
+	KustomizeGraph.AddNode("main", childNode, nil)
+	KustomizeGraph.AddEdge(parentNode, childNode, true, nil)
 }
 
 func sanitizePathForDot(path string) string {
@@ -86,9 +115,8 @@ func sanitizePathForDot(path string) string {
 }
 
 func readKustomizationFile(kustomizationFilePath string) (KustomizationFileStructure, error) {
-
 	var kustomizationFile KustomizationFileStructure
-	kustomizationFilePath = filepath.ToSlash(path.Join(kustomizationFilePath, "kustomization.yaml"))
+	kustomizationFilePath = joinFileNameToPath(kustomizationFilePath, "kustomization.yaml")
 
 	readKustomizationFile, err := ioutil.ReadFile(kustomizationFilePath)
 	if err != nil {
@@ -101,4 +129,8 @@ func readKustomizationFile(kustomizationFilePath string) (KustomizationFileStruc
 	}
 
 	return kustomizationFile, nil
+}
+
+func joinFileNameToPath(filePath string, fileName string) string {
+	return filepath.ToSlash(path.Join(filePath, fileName))
 }
