@@ -1,5 +1,7 @@
 # kustomize-graph
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/jpreese/kustomize-graph)](https://goreportcard.com/report/github.com/jpreese/kustomize-graph)
+
 kustomize-graph is a small application that will generate a dependency graph of your kustomize structure.
 
 ## Usage
@@ -14,8 +16,9 @@ kustomize-graph | dot -Tsvg > graph.svg
 
 NOTE: You should run kustomize-graph in the same working directory as you would run kustomize.
 
+## Examples
 
-## Example
+### Simple
 
 Given the following file structure
 
@@ -31,7 +34,9 @@ Would result in the following dependency graph
 
 ![simple](images/simple_example.png)
 
-Another example, using the multibases example from kustomize
+### Multibases
+
+Another example using the multibases example from the kustomize repository
 
 > ```
 > .
