@@ -15,8 +15,8 @@ import (
 
 // KustomizationFileStructure represents the available attributes in the kustomization yaml file
 type KustomizationFileStructure struct {
-	Bases     []string `yaml:"bases"`
-	Resources []string `yaml:"resources"`
+	Bases   []string `yaml:"bases"`
+	Patches []string `yaml:"patches"`
 }
 
 var graph = gographviz.NewGraph()
@@ -55,24 +55,27 @@ func generateKustomizeGraph(currentPath string) error {
 		return nil
 	}
 
-	parentNode := sanitizePathForDot(currentPath)
-	graph.AddNode("main", parentNode, nil)
+	parent := sanitizePathForDot(currentPath)
+	graph.AddNode("main", parent, nil)
 
 	for _, base := range kustomizationFile.Bases {
-
-		absoluteBasePath, _ := filepath.Abs(base)
-		if strings.HasPrefix(base, "..") {
-			absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(currentPath), base))
-		}
-
-		childNode := sanitizePathForDot(absoluteBasePath)
-		graph.AddNode("main", childNode, nil)
-		graph.AddEdge(parentNode, childNode, true, nil)
-
-		generateKustomizeGraph(absoluteBasePath)
+		handleBase(parent, base, currentPath)
 	}
 
 	return nil
+}
+
+func handleBase(parent string, value string, context string) {
+	absoluteBasePath, _ := filepath.Abs(value)
+	if strings.HasPrefix(value, "..") {
+		absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(context), value))
+	}
+
+	child := sanitizePathForDot(absoluteBasePath)
+	graph.AddNode("main", child, nil)
+	graph.AddEdge(parent, child, true, nil)
+
+	generateKustomizeGraph(absoluteBasePath)
 }
 
 func sanitizePathForDot(path string) string {
