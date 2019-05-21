@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"strconv"
 )
 
 // KustomizationFileStructure represents the available attributes in the kustomization yaml file
@@ -38,7 +39,7 @@ func main() {
 		return
 	}
 
-	err = generateKustomizeGraph(currentWorkingDirectory)
+	err = generateKustomizeGraph(currentWorkingDirectory, "")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -47,60 +48,119 @@ func main() {
 	fmt.Print(KustomizeGraph.String())
 }
 
-func generateKustomizeGraph(currentPath string) error {
+func generateKustomizeGraph(currentPath string, previousNode string) error {
 	kustomizationFile, err := readKustomizationFile(currentPath)
 	if err != nil {
 		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
 	}
 
-	parentNode := sanitizePathForDot(currentPath)
-	KustomizeGraph.AddNode("main", parentNode, nil)
+	node, err := addNodeToGraph(currentPath)
+	if err != nil {
+		return errors.Wrapf(err, "Could not create node from path %s", currentPath)
+	}
 
-	// Handle the resources present in the kustomization file that 
-	// are not in the bases section. This typically includes:
-	// resources and patches where recursion isn't needed.
-	handleRelativeResources(kustomizationFile, currentPath, parentNode)
+	if (previousNode != "") {
+		KustomizeGraph.AddEdge(previousNode, node, true, nil)
+		fmt.Printf("ADDED EDGED from %s to %s\n", previousNode, node)
+	}
 	
 	// When the kustomization file includes one or more bases
 	// we need to recursively call the generateKustomizeGraph method
 	// to build out all of the resources present in the base yaml and any
 	// other potential additional bases.
 	for _, base := range kustomizationFile.Bases {
-		absoluteBasePath, _ := filepath.Abs(base)
-		if strings.HasPrefix(base, "..") {
-			absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(currentPath), base))
-		}
-	
-		childNode := sanitizePathForDot(absoluteBasePath)
-		addChildNodeToParent(childNode, parentNode)
-	
-		// Recursively call this method again to resolve additional bases
-		generateKustomizeGraph(absoluteBasePath)
+		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
+
+		generateKustomizeGraph(absoluteBasePath, node)
 	}
 
 	return nil
 }
 
-func handleRelativeResources(kustomizationFile KustomizationFileStructure, currentPath string, parent string) {
-	for _, resource := range kustomizationFile.Resources {
-		resourceNode := sanitizePathForDot(joinFileNameToPath(currentPath, resource))
-		addChildNodeToParent(resourceNode, parent)
+func addNodeToGraph(path string) (string, error) {
+	node := sanitizePathForDot(path)
+
+	fmt.Printf("attempting to add node %s\n", node)
+	if (KustomizeGraph.IsNode(node)) {
+		fmt.Printf("DID NOT ADD NODE %s\n", node)
+		return node, nil
+	}
+	fmt.Printf("ADDED NODE %s\n", node)
+
+	kustomizationFile, err := readKustomizationFile(path)
+	if err != nil {
+		return "", errors.Wrapf(err, "Could not read kustomization file in path %s", path)
 	}
 
-	for _, patch := range kustomizationFile.Patches {
-		patchNode := sanitizePathForDot(joinFileNameToPath(currentPath, patch))
-		addChildNodeToParent(patchNode, parent)
+	missingResources, err := getMissingResourceAttributes(kustomizationFile, path)
+	if err != nil {
+		return "", errors.Wrapf(err, "Could not get excluded resource attributes for path %s", path)
 	}
 
-	for _, patchStrategicMerge := range kustomizationFile.PatchesStrategicMerge {
-		patchStrategicMergeNode := sanitizePathForDot(joinFileNameToPath(currentPath, patchStrategicMerge))
-		addChildNodeToParent(patchStrategicMergeNode, parent)
-	}
+	KustomizeGraph.AddNode("main", node, missingResources)
+
+	return node, nil
 }
 
-func addChildNodeToParent(childNode string, parentNode string) {
-	KustomizeGraph.AddNode("main", childNode, nil)
-	KustomizeGraph.AddEdge(parentNode, childNode, true, nil)
+func getMissingResourceAttributes(kustomizationFile KustomizationFileStructure, currentPath string) (map[string]string, error) {
+
+	definedYamls := []string{}
+	definedYamls = append(definedYamls, kustomizationFile.Resources...)
+	definedYamls = append(definedYamls, kustomizationFile.Patches...)
+	definedYamls = append(definedYamls, kustomizationFile.PatchesStrategicMerge...)
+
+	foundMissingResources, err := findMissingResources(currentPath, definedYamls)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Could not find missing resources (%s) in path %s", definedYamls, currentPath)
+	}
+
+	nodeAttributes := make(map[string]string)
+	for key, resource := range foundMissingResources {
+		nodeAttributes[strconv.Itoa(key)] = resource
+	}
+
+	return nodeAttributes, nil
+}
+
+func findMissingResources(pathToSearch string, filesToCheck []string) ([]string, error) {
+
+	directoryInfo, err := ioutil.ReadDir(pathToSearch)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Could not read directory %s", pathToSearch)
+	}
+
+	missingFiles := []string{}
+	for _, info := range directoryInfo {
+
+		if info.IsDir() {
+			continue
+		}
+
+		// Only consider the resource missing if it is a yaml file
+		if filepath.Ext(info.Name()) != ".yaml" {
+			continue
+		}
+
+		// Ignore the kustomization file itself
+		if info.Name() == "kustomization.yaml" {
+			continue
+		}
+
+		if (!existsInSlice(filesToCheck, info.Name())) {
+			missingFiles = append(missingFiles, info.Name())
+		}
+	}
+
+	return missingFiles, nil
+}
+
+func existsInSlice(slice []string, element string) bool {
+    for _, current := range slice {
+        if current == element {
+            return true
+        }
+    }
+    return false
 }
 
 func sanitizePathForDot(path string) string {
