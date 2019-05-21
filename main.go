@@ -19,7 +19,6 @@ type KustomizationFileStructure struct {
 	Resources []string `yaml:"resources"`
 }
 
-var graphAst, _ = gographviz.ParseString(`digraph main {}`)
 var graph = gographviz.NewGraph()
 
 func main() {
@@ -29,6 +28,7 @@ func main() {
 		return
 	}
 
+	var graphAst, _ = gographviz.ParseString(`digraph main {}`)
 	err = gographviz.Analyse(graphAst, graph)
 	if err != nil {
 		log.Fatal("Unable to initialize dependency graph")
@@ -46,12 +46,7 @@ func main() {
 
 func generateKustomizeGraph(currentPath string, parent string) error {
 
-	kustomizationFilePath, err := findKustomizationFile(currentPath)
-	if err != nil {
-		return errors.Wrapf(err, "Could not find kustomization file in path %s", currentPath)
-	}
-
-	kustomizationFile, err := readKustomizationFile(kustomizationFilePath)
+	kustomizationFile, err := readKustomizationFile(currentPath)
 	if err != nil {
 		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
 	}
@@ -60,71 +55,37 @@ func generateKustomizeGraph(currentPath string, parent string) error {
 		return nil
 	}
 
-	parentNode := pathToGraphNode(kustomizationFilePath)
+	parentNode := sanitizePathForDot(currentPath)
 	graph.AddNode("main", parentNode, nil)
+
 	for _, base := range kustomizationFile.Bases {
-		absoluteBasePath := ""
+
+		absoluteBasePath, _ := filepath.Abs(base)
 		if strings.HasPrefix(base, "..") {
-			absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(kustomizationFilePath), base))
-		} else {
-			absoluteBasePath, _ = filepath.Abs(base)
+			absoluteBasePath, _ = filepath.Abs(path.Join(path.Dir(currentPath), base))
 		}
 
-		childNode := pathToGraphNode(absoluteBasePath)
-		if parentNode != childNode {
-			graph.AddNode("main", childNode, nil)
-			graph.AddEdge(parentNode, childNode, true, nil)
-		}
+		childNode := sanitizePathForDot(absoluteBasePath)
+		graph.AddNode("main", childNode, nil)
+		graph.AddEdge(parentNode, childNode, true, nil)
 
-		generateKustomizeGraph(absoluteBasePath, kustomizationFilePath)
+		generateKustomizeGraph(absoluteBasePath, currentPath)
 	}
 
 	return nil
 }
 
-func pathToGraphNode(path string) string {
-
-	if strings.Contains(path, ".yaml") {
-		path, _ = filepath.Split(path)
-	}
-
-	path = filepath.Clean(path)
+func sanitizePathForDot(path string) string {
+	path = "\"" + path + "\""
 	path = filepath.ToSlash(path)
 
-	path = "\"" + path + "\""
-
 	return path
-}
-
-func findKustomizationFile(searchPath string) (string, error) {
-
-	filesInCurrentDirectory, err := ioutil.ReadDir(searchPath)
-	if err != nil {
-		return "", errors.Wrapf(err, "Unable to read directory %s", searchPath)
-	}
-
-	foundKustomizeFile := false
-	for _, f := range filesInCurrentDirectory {
-
-		if f.IsDir() {
-			continue
-		}
-
-		if f.Name() == "kustomization.yaml" {
-			foundKustomizeFile = true
-		}
-	}
-
-	if !foundKustomizeFile {
-		return "", errors.Wrapf(err, "Unable to find kustomization file in path %s", searchPath)
-	}
-
-	return path.Join(searchPath, "kustomization.yaml"), nil
 }
 
 func readKustomizationFile(kustomizationFilePath string) (KustomizationFileStructure, error) {
 
 	var kustomizationFile KustomizationFileStructure
+	kustomizationFilePath = filepath.ToSlash(path.Join(kustomizationFilePath, "kustomization.yaml"))
 
 	readKustomizationFile, err := ioutil.ReadFile(kustomizationFilePath)
 	if err != nil {
