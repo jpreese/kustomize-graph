@@ -22,20 +22,20 @@ type KustomizationFileStructure struct {
 var graph = gographviz.NewGraph()
 
 func main() {
+
 	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
 		log.Fatal("Unable to get current working directory")
 		return
 	}
 
-	var graphAst, _ = gographviz.ParseString(`digraph main {}`)
-	err = gographviz.Analyse(graphAst, graph)
-	if err != nil {
-		log.Fatal("Unable to initialize dependency graph")
+	graphAst, _ := gographviz.ParseString(`digraph main {}`)
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		log.Fatal("Unable to initialize graph")
 		return
 	}
 
-	err = generateKustomizeGraph(currentWorkingDirectory, currentWorkingDirectory)
+	err = generateKustomizeGraph(currentWorkingDirectory)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -44,7 +44,7 @@ func main() {
 	fmt.Print(graph.String())
 }
 
-func generateKustomizeGraph(currentPath string, parent string) error {
+func generateKustomizeGraph(currentPath string) error {
 
 	kustomizationFile, err := readKustomizationFile(currentPath)
 	if err != nil {
@@ -69,7 +69,7 @@ func generateKustomizeGraph(currentPath string, parent string) error {
 		graph.AddNode("main", childNode, nil)
 		graph.AddEdge(parentNode, childNode, true, nil)
 
-		generateKustomizeGraph(absoluteBasePath, currentPath)
+		generateKustomizeGraph(absoluteBasePath)
 	}
 
 	return nil
