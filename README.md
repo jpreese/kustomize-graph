@@ -4,6 +4,10 @@
 
 kustomize-graph is a small application that will generate a dependency graph of your kustomize structure.
 
+## Install
+
+Builds are available on the [releases](https://github.com/jpreese/kustomize-graph/releases) page. 
+
 ## Usage
 
 kustomize-graph outputs a graph in DOT. To visualize a DOT graph, [graphviz](https://graphviz.gitlab.io/download/) is recommended.
