@@ -60,18 +60,27 @@ func generateKustomizeGraph(currentPath string, previousNode string) error {
 	}
 
 	if (previousNode != "") {
+		fmt.Printf("TRYING TO ADD EDGE from %s to %s\n", previousNode, node)
 		KustomizeGraph.AddEdge(previousNode, node, true, nil)
-		fmt.Printf("ADDED EDGED from %s to %s\n", previousNode, node)
+		fmt.Printf("ADDED EDGE from %s to %s\n", previousNode, node)
 	}
+
+	if (len(kustomizationFile.Bases) == 0) {
+		fmt.Printf("watch has ended for path %s which should have resources %s and bases %s\n", currentPath, kustomizationFile.Resources, kustomizationFile.Bases)
+		return nil
+	}
+
+	fmt.Printf("bases for node %s are %s\n", currentPath, kustomizationFile.Bases)
 	
 	// When the kustomization file includes one or more bases
 	// we need to recursively call the generateKustomizeGraph method
 	// to build out all of the resources present in the base yaml and any
 	// other potential additional bases.
 	for _, base := range kustomizationFile.Bases {
+		fmt.Printf("in base loop for node %s\n", currentPath)
 		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
-
-		generateKustomizeGraph(absoluteBasePath, node)
+		fmt.Printf("absbasepath became and is next loop: %s\n", absoluteBasePath)
+		return generateKustomizeGraph(absoluteBasePath, node)
 	}
 
 	return nil
@@ -79,6 +88,10 @@ func generateKustomizeGraph(currentPath string, previousNode string) error {
 
 func addNodeToGraph(path string) (string, error) {
 	node := sanitizePathForDot(path)
+
+	fmt.Println("-------")
+	fmt.Printf("all nodes are: %v\n", KustomizeGraph.Nodes)
+	fmt.Println("-------")
 
 	fmt.Printf("attempting to add node %s\n", node)
 	if (KustomizeGraph.IsNode(node)) {
