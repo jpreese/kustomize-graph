@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.2.0
+
+- Added missing resource feature (see [README.md](README.md))
+
 ## v1.1.0
 
 - Handle patches and patchesStrategicMerge
