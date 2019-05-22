@@ -24,13 +24,13 @@ type KustomizationFileStructure struct {
 // KustomizeGraph represents the generated DOT graph
 var KustomizeGraph = gographviz.NewGraph()
 
+// GraphName represents the name of the graph that is created
+var GraphName = "main"
+
 func main() {
 
-	graphAst, _ := gographviz.ParseString(`digraph main {}`)
-	if err := gographviz.Analyse(graphAst, KustomizeGraph); err != nil {
-		log.Fatal("Unable to initialize graph")
-		return
-	}
+	KustomizeGraph.SetName(GraphName)
+	KustomizeGraph.Directed = true
 
 	currentWorkingDirectory, err := os.Getwd()
 	if err != nil {
@@ -95,7 +95,7 @@ func addNodeToGraph(path string) (string, error) {
 		return "", errors.Wrapf(err, "Could not get excluded resource attributes for path %s", path)
 	}
 
-	err = KustomizeGraph.AddNode("main", node, missingResources)
+	err = KustomizeGraph.AddNode(GraphName, node, missingResources)
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not add node %s", node)
 	}
@@ -121,8 +121,17 @@ func getMissingResourceAttributes(kustomizationFile KustomizationFileStructure, 
 		return nodeAttributes, nil
 	}
 
-	nodeAttributes["label"] = strings.Join(foundMissingResources, ",")
+	nodeAttributes["label"] = getMissingResourceLabel(currentPath, foundMissingResources)
 	return nodeAttributes, nil
+}
+
+func getMissingResourceLabel(path string, missingResources []string) string {
+	label := "\"" + filepath.ToSlash(path) + "\\n\\n"
+	label += "missing:\\n"
+	label += strings.Join(missingResources, "\\n")
+	label += "\""
+
+	return label
 }
 
 func findMissingResources(pathToSearch string, filesToCheck []string) ([]string, error) {
