@@ -17,28 +17,27 @@ type KustomizationFileGetter interface {
 }
 
 // MissingResourceGetter gets all of the resources missing from a kustomization file
-// and returns the result as a label
 type MissingResourceGetter interface {
-	GetMissingResources() (map[string]string, error)
+	GetMissingResources() ([]string, error)
 }
 
 // GenerateKustomizeGraph generates a dependency graph
-func GenerateKustomizeGraph(k KustomizationFileGetter, currentNode string, previousNode string) error {
+func GenerateKustomizeGraph(k KustomizationFileGetter, currentPath string, previousNode string) (*gographviz.Graph, error) {
 
-	kustomizationFile, err := k.Get(currentNode)
+	kustomizationFile, err := k.Get(currentPath)
 	if err != nil {
-		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentNode)
+		return nil, errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
 	}
 
-	newNode, err := addNodeToGraph(kustomizationFile)
+	newNode, err := addNodeToGraph(&kustomizationFile, currentPath)
 	if err != nil {
-		return errors.Wrapf(err, "Could not create node from path %s", currentNode)
+		return nil, errors.Wrapf(err, "Could not create node from path %s", currentPath)
 	}
 
 	if previousNode != "" {
 		err = KustomizeGraph.AddEdge(previousNode, newNode, true, nil)
 		if err != nil {
-			return errors.Wrapf(err, "Could not create edge from %s to %s", previousNode, newNode)
+			return nil, errors.Wrapf(err, "Could not create edge from %s to %s", previousNode, newNode)
 		}
 	}
 
@@ -47,11 +46,11 @@ func GenerateKustomizeGraph(k KustomizationFileGetter, currentNode string, previ
 	// to build out all of the resources present in the base yaml and any
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
-		absoluteBasePath, _ := filepath.Abs(path.Join(currentNode, strings.TrimPrefix(base, "./")))
+		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
 		GenerateKustomizeGraph(k, absoluteBasePath, newNode)
 	}
 
-	return nil
+	return KustomizeGraph, nil
 }
 
 func initializeGraph() *gographviz.Graph {
@@ -63,24 +62,43 @@ func initializeGraph() *gographviz.Graph {
 	return graph
 }
 
-func addNodeToGraph(kustomizationFile KustomizationFile) (string, error) {
+func addNodeToGraph(m MissingResourceGetter, pathToAdd string) (string, error) {
 
-	node := sanitizePathForDot(kustomizationFile.Path)
+	node := sanitizePathForDot(pathToAdd)
 	if KustomizeGraph.IsNode(node) {
 		return node, nil
 	}
 
-	missingResources, err := kustomizationFile.GetMissingResources()
+	missingResources, err := m.GetMissingResources()
 	if err != nil {
-		return "", errors.Wrapf(err, "Could not get missing resources for path %s", kustomizationFile.Path)
+		return "", errors.Wrapf(err, "Could not get missing resources for path %s", pathToAdd)
 	}
 
-	err = KustomizeGraph.AddNode(KustomizeGraph.Name, node, missingResources)
+	nodeLabel := getNodeLabelFromMissingResources(pathToAdd, missingResources)
+
+	err = KustomizeGraph.AddNode(KustomizeGraph.Name, node, nodeLabel)
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not add node %s", node)
 	}
 
 	return node, nil
+}
+
+func getNodeLabelFromMissingResources(filePath string, missingResources []string) map[string]string {
+
+	missingResourcesLabel := make(map[string]string)
+	if len(missingResources) == 0 {
+		return missingResourcesLabel
+	}
+
+	nodeLabel := "\"" + filepath.ToSlash(filePath) + "\\n\\n"
+	nodeLabel += "missing:\\n"
+	nodeLabel += strings.Join(missingResources, "\\n")
+	nodeLabel += "\""
+
+	missingResourcesLabel["label"] = nodeLabel
+
+	return missingResourcesLabel
 }
 
 func sanitizePathForDot(path string) string {

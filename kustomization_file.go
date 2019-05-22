@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
-	"strings"
 )
 
 // KustomizationFile represents the kustomization.yaml file
@@ -47,7 +46,7 @@ func (file *KustomizationFile) Get(filePath string) (KustomizationFile, error) {
 
 // GetMissingResources finds all of the resources that exist in the folder
 // but are not explicitly defined in the kustomization.yaml file
-func (file *KustomizationFile) GetMissingResources() (map[string]string, error) {
+func (file *KustomizationFile) GetMissingResources() ([]string, error) {
 
 	definedResources := []string{}
 	definedResources = append(definedResources, file.Resources...)
@@ -81,23 +80,7 @@ func (file *KustomizationFile) GetMissingResources() (map[string]string, error) 
 		}
 	}
 
-	if len(missingResources) == 0 {
-		return map[string]string{}, nil
-	}
-
-	missingResourcesLabel := make(map[string]string)
-	missingResourcesLabel["label"] = getMissingResourceLabel(file.Path, missingResources)
-
-	return missingResourcesLabel, nil
-}
-
-func getMissingResourceLabel(path string, missingResources []string) string {
-	label := "\"" + filepath.ToSlash(path) + "\\n\\n"
-	label += "missing:\\n"
-	label += strings.Join(missingResources, "\\n")
-	label += "\""
-
-	return label
+	return missingResources, nil
 }
 
 func existsInSlice(slice []string, element string) bool {
