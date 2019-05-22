@@ -1,4 +1,4 @@
-package kustomizegraph
+package main
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ func main() {
 		return
 	}
 
-	err = GenerateKustomizeGraph(currentWorkingDirectory, "")
+	err = GenerateKustomizeGraph(NewKustomizationFile(), currentWorkingDirectory, "")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

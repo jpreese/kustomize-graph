@@ -1,4 +1,4 @@
-package kustomizegraph
+package main
 
 import (
 	"github.com/pkg/errors"
@@ -23,8 +23,8 @@ func NewKustomizationFile() *KustomizationFile {
 	return &KustomizationFile{}
 }
 
-// GetKustomizationFile attempts to read a kustomization.yaml file from the specified path
-func (file *KustomizationFile) GetKustomizationFile(filePath string) (KustomizationFile, error) {
+// Get attempts to read a kustomization.yaml file from the specified path
+func (file *KustomizationFile) Get(filePath string) (KustomizationFile, error) {
 
 	var kustomizationFile KustomizationFile
 

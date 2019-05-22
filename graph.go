@@ -1,4 +1,4 @@
-package kustomizegraph
+package main
 
 import (
 	"github.com/awalterschulze/gographviz"
@@ -8,28 +8,37 @@ import (
 	"strings"
 )
 
-var GraphName = "main"
-var KustomizeGraph = gographviz.NewGraph()
+// KustomizeGraph represents the kustomize dependency graph
+var KustomizeGraph = initializeGraph()
 
-func GenerateKustomizeGraph(currentPath string, previousNode string) error {
+// KustomizationFileGetter attempts to get a kustomization file
+type KustomizationFileGetter interface {
+	Get(path string) (KustomizationFile, error)
+}
 
-	KustomizeGraph.SetName(GraphName)
-	KustomizeGraph.Directed = true
+// MissingResourceGetter gets all of the resources missing from a kustomization file
+// and returns the result as a label
+type MissingResourceGetter interface {
+	GetMissingResources() (map[string]string, error)
+}
 
-	kustomizationFile, err := NewKustomizationFile().GetKustomizationFile(currentPath)
+// GenerateKustomizeGraph generates a dependency graph
+func GenerateKustomizeGraph(k KustomizationFileGetter, currentNode string, previousNode string) error {
+
+	kustomizationFile, err := k.Get(currentNode)
 	if err != nil {
-		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
+		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentNode)
 	}
 
-	node, err := addNodeToGraph(kustomizationFile)
+	newNode, err := addNodeToGraph(kustomizationFile)
 	if err != nil {
-		return errors.Wrapf(err, "Could not create node from path %s", currentPath)
+		return errors.Wrapf(err, "Could not create node from path %s", currentNode)
 	}
 
 	if previousNode != "" {
-		err = KustomizeGraph.AddEdge(previousNode, node, true, nil)
+		err = KustomizeGraph.AddEdge(previousNode, newNode, true, nil)
 		if err != nil {
-			return errors.Wrapf(err, "Could not create edge from %s to %s", previousNode, node)
+			return errors.Wrapf(err, "Could not create edge from %s to %s", previousNode, newNode)
 		}
 	}
 
@@ -38,12 +47,20 @@ func GenerateKustomizeGraph(currentPath string, previousNode string) error {
 	// to build out all of the resources present in the base yaml and any
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
-		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
-
-		GenerateKustomizeGraph(absoluteBasePath, node)
+		absoluteBasePath, _ := filepath.Abs(path.Join(currentNode, strings.TrimPrefix(base, "./")))
+		GenerateKustomizeGraph(k, absoluteBasePath, newNode)
 	}
 
 	return nil
+}
+
+func initializeGraph() *gographviz.Graph {
+	graph := gographviz.NewGraph()
+
+	graph.SetName("main")
+	graph.Directed = true
+
+	return graph
 }
 
 func addNodeToGraph(kustomizationFile KustomizationFile) (string, error) {
@@ -58,7 +75,7 @@ func addNodeToGraph(kustomizationFile KustomizationFile) (string, error) {
 		return "", errors.Wrapf(err, "Could not get missing resources for path %s", kustomizationFile.Path)
 	}
 
-	err = KustomizeGraph.AddNode(GraphName, node, missingResources)
+	err = KustomizeGraph.AddNode(KustomizeGraph.Name, node, missingResources)
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not add node %s", node)
 	}
