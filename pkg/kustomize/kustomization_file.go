@@ -28,7 +28,6 @@ func (file *KustomizationFile) Get(filePath string) (KustomizationFile, error) {
 	var kustomizationFile KustomizationFile
 
 	kustomizationFilePath := filepath.ToSlash(path.Join(filePath, "kustomization.yaml"))
-
 	kustomizationFileBytes, err := ioutil.ReadFile(kustomizationFilePath)
 	if err != nil {
 		return kustomizationFile, errors.Wrapf(err, "Could not read file %s", kustomizationFilePath)

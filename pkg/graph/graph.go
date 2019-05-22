@@ -10,36 +10,55 @@ import (
 	"github.com/jpreese/kustomize-graph/pkg/kustomize"
 )
 
-// KustomizeGraph represents the kustomize dependency graph
-var KustomizeGraph = initializeGraph()
-
-// KustomizationFileGetter attempts to get a kustomization file
+// KustomizationFileGetter attempts to get information about a kustomization file
 type KustomizationFileGetter interface {
 	Get(path string) (kustomize.KustomizationFile, error)
-}
-
-// MissingResourceGetter gets all of the resources missing from a kustomization file
-type MissingResourceGetter interface {
 	GetMissingResources() ([]string, error)
 }
 
-// GenerateKustomizeGraph generates a dependency graph
-func GenerateKustomizeGraph(k KustomizationFileGetter, currentPath string, previousNode string) (*gographviz.Graph, error) {
+// Graph represents the current dependency graph
+type Graph interface {
+	AddNode(graph string, name string, attributes map[string]string) error
+	AddEdge(source string, destination string, directed bool, attributes map[string]string) error
+	IsNode(name string) bool
+	String() string
+}
 
-	kustomizationFile, err := k.Get(currentPath)
+// New creates an unpopulated graph with the given name
+func New() *gographviz.Graph {
+	graph := gographviz.NewGraph()
+
+	graph.SetName("main")
+	graph.Directed = true
+
+	return graph
+}
+
+// GenerateKustomizeGraph generates a dependency graph
+func GenerateKustomizeGraph(g Graph, k kustomize.KustomizationFile) (string, error) {
+	err := traverseKustomizeStructure(g, &k, k.Path, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
+		return "", errors.Wrapf(err, "Could not produce graph from directory %s", k.Path)
 	}
 
-	newNode, err := addNodeToGraph(&kustomizationFile, currentPath)
+	return g.String(), nil
+}
+
+func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath string, previousNode string) error {
+	kustomizationFile, err := k.Get(currentPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Could not create node from path %s", currentPath)
+		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
+	}
+
+	newNode, err := addNodeToGraph(g, &kustomizationFile, currentPath)
+	if err != nil {
+		return errors.Wrapf(err, "Could not create node from path %s", currentPath)
 	}
 
 	if previousNode != "" {
-		err = KustomizeGraph.AddEdge(previousNode, newNode, true, nil)
+		err = g.AddEdge(previousNode, newNode, true, nil)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Could not create edge from %s to %s", previousNode, newNode)
+			return errors.Wrapf(err, "Could not create edge from %s to %s", previousNode, newNode)
 		}
 	}
 
@@ -49,36 +68,27 @@ func GenerateKustomizeGraph(k KustomizationFileGetter, currentPath string, previ
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
 		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
-		GenerateKustomizeGraph(k, absoluteBasePath, newNode)
+		traverseKustomizeStructure(g, k, absoluteBasePath, newNode)
 	}
 
-	return KustomizeGraph, nil
+	return nil
 }
 
-func initializeGraph() *gographviz.Graph {
-	graph := gographviz.NewGraph()
-
-	graph.SetName("main")
-	graph.Directed = true
-
-	return graph
-}
-
-func addNodeToGraph(m MissingResourceGetter, pathToAdd string) (string, error) {
+func addNodeToGraph(g Graph, k KustomizationFileGetter, pathToAdd string) (string, error) {
 
 	node := sanitizePathForDot(pathToAdd)
-	if KustomizeGraph.IsNode(node) {
+	if g.IsNode(node) {
 		return node, nil
 	}
 
-	missingResources, err := m.GetMissingResources()
+	missingResources, err := k.GetMissingResources()
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not get missing resources for path %s", pathToAdd)
 	}
 
 	nodeLabel := getNodeLabelFromMissingResources(pathToAdd, missingResources)
 
-	err = KustomizeGraph.AddNode(KustomizeGraph.Name, node, nodeLabel)
+	err = g.AddNode("main", node, nodeLabel)
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not add node %s", node)
 	}

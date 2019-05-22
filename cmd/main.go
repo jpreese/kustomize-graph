@@ -16,12 +16,17 @@ func main() {
 		return
 	}
 
-	kustomizationFile := kustomize.NewKustomizationFile()
-	graph, err := graph.GenerateKustomizeGraph(kustomizationFile, workingDirectory, "")
+	kustomizationFile, err := kustomize.NewKustomizationFile().Get(workingDirectory)
+	if err != nil {
+		log.Fatal("Unable to get kustomization.yaml file from directory %s", workingDirectory)
+		return
+	}
+
+	dependencyGraph, err := graph.GenerateKustomizeGraph(graph.New(), kustomizationFile)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	fmt.Print(graph.String())
+	fmt.Print(dependencyGraph)
 }
