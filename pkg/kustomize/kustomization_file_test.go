@@ -1,4 +1,4 @@
-package main
+package kustomize
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	file, _ := NewKustomizationFile().Get("testing/get/")
+	file, _ := NewKustomizationFile().Get("../../testing/get/")
 
 	expected := "a"
 	actual := file.Resources[0]
@@ -17,7 +17,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestGetMissingResources(t *testing.T) {
-	file, _ := NewKustomizationFile().Get("testing/getmissingresources/")
+	file, _ := NewKustomizationFile().Get("../../testing/getmissingresources/")
 
 	actual, _ := file.GetMissingResources()
 	expected := []string{"a.yaml"}

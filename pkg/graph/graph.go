@@ -1,4 +1,4 @@
-package main
+package graph
 
 import (
 	"github.com/awalterschulze/gographviz"
@@ -6,6 +6,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/jpreese/kustomize-graph/pkg/kustomize"
 )
 
 // KustomizeGraph represents the kustomize dependency graph
@@ -13,7 +15,7 @@ var KustomizeGraph = initializeGraph()
 
 // KustomizationFileGetter attempts to get a kustomization file
 type KustomizationFileGetter interface {
-	Get(path string) (KustomizationFile, error)
+	Get(path string) (kustomize.KustomizationFile, error)
 }
 
 // MissingResourceGetter gets all of the resources missing from a kustomization file
