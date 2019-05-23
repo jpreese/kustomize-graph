@@ -7,10 +7,9 @@ import (
 	"github.com/spf13/afero"
 )
 
-func NewFake(fakeFileSystem afero.Fs, path string) *kustomizationFileLoader {
-	return &kustomizationFileLoader{
+func FakeContext(fakeFileSystem afero.Fs) *kustomizationFileContext {
+	return &kustomizationFileContext{
 		fileSystem: fakeFileSystem,
-		path:       path,
 	}
 }
 
@@ -28,7 +27,7 @@ resources:
 - a.yaml
 `
 	afero.WriteFile(fakeFileSystem, "app/kustomization.yaml", []byte(fileContents), 0644)
-	kustomizationFile, _ := NewFake(fakeFileSystem, "app").Get()
+	kustomizationFile, _ := FakeContext(fakeFileSystem).Get("app")
 
 	expected := "a.yaml"
 	actual := kustomizationFile.Resources[0]
@@ -52,10 +51,12 @@ func TestGetMissingResources(t *testing.T) {
 	afero.WriteFile(fakeFileSystem, "app/kustomization.yaml", []byte(""), 0644)
 	afero.WriteFile(fakeFileSystem, "app/excluded.yaml", []byte(""), 0644)
 
-	actual, _ := NewFake(fakeFileSystem, rootPath).GetMissingResources()
+	kustomizationFile, _ := FakeContext(fakeFileSystem).Get("app")
+
+	actual := kustomizationFile.MissingResources
 	expected := []string{"excluded.yaml"}
 
 	if reflect.DeepEqual(actual, expected) == false {
-		t.Errorf("Rreturned wrong missing resources, got %s, want: %s", actual, expected)
+		t.Errorf("Returned wrong missing resources, got %s, want: %s", actual, expected)
 	}
 }

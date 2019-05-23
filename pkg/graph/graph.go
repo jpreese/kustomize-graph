@@ -18,9 +18,9 @@ type Graph interface {
 	String() string
 }
 
-// KustomizationFileLoader loads an environment to get kustomization files from
-type KustomizationFileLoader interface {
-	NewLoader(path string) *kustomizationfile.Loader
+// KustomizationFileGetter loads an environment to get kustomization files from
+type KustomizationFileGetter interface {
+	Get(filePath string) (*kustomizationfile.KustomizationFile, error)
 }
 
 // NewGraph creates an unpopulated graph with the given name
@@ -32,11 +32,13 @@ func NewGraph() *gographviz.Graph {
 	return graph
 }
 
-// GenerateKustomizeGraph generates a dependency graph
-func GenerateKustomizeGraph(k KustomizationFileLoader) (string, error) {
+// GenerateKustomizeGraph generates a dependency graph starting from the root path
+func GenerateKustomizeGraph(rootPath string) (string, error) {
 
 	g := NewGraph()
-	err := traverseKustomizeStructure(g, k, rootPath, "")
+	kustomizationContext := kustomizationfile.Context()
+
+	err := traverseKustomizeStructure(g, kustomizationContext, rootPath, "")
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not produce graph from directory %s", rootPath)
 	}
@@ -44,13 +46,13 @@ func GenerateKustomizeGraph(k KustomizationFileLoader) (string, error) {
 	return g.String(), nil
 }
 
-func traverseKustomizeStructure(g Graph, k KustomizationFileLoader, currentPath string, previousNode string) error {
-	kustomizationFile, err := k.NewLoader(currentPath).Get()
+func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath string, previousNode string) error {
+	kustomizationFile, err := k.Get(currentPath)
 	if err != nil {
-		return errors.Wrapf(err, "Could not read kustomization file in path %s", currentPath)
+		return errors.Wrapf(err, "Could not get kustomization file")
 	}
 
-	newNode, err := addNodeToGraph(g, k, currentPath)
+	newNode, err := addNodeToGraph(g, currentPath, kustomizationFile)
 	if err != nil {
 		return errors.Wrapf(err, "Could not create node from path %s", currentPath)
 	}
@@ -74,21 +76,16 @@ func traverseKustomizeStructure(g Graph, k KustomizationFileLoader, currentPath 
 	return nil
 }
 
-func addNodeToGraph(g Graph, k KustomizationFileLoader, pathToAdd string) (string, error) {
+func addNodeToGraph(g Graph, pathToAdd string, kustomizationFile *kustomizationfile.KustomizationFile) (string, error) {
 
 	node := sanitizePathForDot(pathToAdd)
 	if g.IsNode(node) {
 		return node, nil
 	}
 
-	missingResources, err := k.NewLoader(pathToAdd).GetMissingResources()
-	if err != nil {
-		return "", errors.Wrapf(err, "Could not get missing resources for path %s", pathToAdd)
-	}
+	nodeLabel := getNodeLabelFromMissingResources(pathToAdd, kustomizationFile.MissingResources)
 
-	nodeLabel := getNodeLabelFromMissingResources(pathToAdd, missingResources)
-
-	err = g.AddNode("main", node, nodeLabel)
+	err := g.AddNode("main", node, nodeLabel)
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not add node %s", node)
 	}

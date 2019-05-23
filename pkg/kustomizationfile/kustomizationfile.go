@@ -15,27 +15,29 @@ type KustomizationFile struct {
 	Resources             []string `yaml:"resources"`
 	Patches               []string `yaml:"patches"`
 	PatchesStrategicMerge []string `yaml:"patchesStrategicMerge"`
+
+	MissingResources      []string
 }
 
-type loader struct {
+type kustomizationFileContext struct {
 	fileSystem afero.Fs
 }
 
-// New creates a loader to get kustomization files from
-func New() *loader {
+// Context returns the context to interact with kustomization files
+func Context() *kustomizationFileContext {
 	defaultFileSystem := afero.NewOsFs()
 
-	return &loader{
+	return &kustomizationFileContext{
 		fileSystem: defaultFileSystem,
 	}
 }
 
 // Get attempts to read a kustomization.yaml file
-func (l *loader) Get() (*KustomizationFile, error) {
+func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, error) {
 	var kustomizationFile KustomizationFile
-	kustomizationFilePath := filepath.ToSlash(path.Join(loader.Path, "kustomization.yaml"))
+	kustomizationFilePath := filepath.ToSlash(path.Join(filePath, "kustomization.yaml"))
 
-	fileUtility := &afero.Afero{Fs: loader.fileSystem}
+	fileUtility := &afero.Afero{Fs: k.fileSystem}
 	kustomizationFileBytes, err := fileUtility.ReadFile(kustomizationFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not read file %s", kustomizationFilePath)
@@ -46,27 +48,29 @@ func (l *loader) Get() (*KustomizationFile, error) {
 		return nil, errors.Wrapf(err, "Could not unmarshal yaml file %s", kustomizationFilePath)
 	}
 
+	missingResources, err := k.getMissingResources(filePath, &kustomizationFile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Could not get missing resources in path %s", kustomizationFilePath)
+	}
+
+	kustomizationFile.MissingResources = missingResources
+
 	return &kustomizationFile, nil
 }
 
 // GetMissingResources finds all of the resources that exist in the folder
 // but are not explicitly defined in the kustomization.yaml file
-func (loader *Loader) GetMissingResources() ([]string, error) {
-
-	kustomizationFile, err := loader.Get()
-	if err != nil {
-		return nil, errors.Wrapf(err, "Could not load file from path %s", loader.Path)
-	}
+func (k *kustomizationFileContext) getMissingResources(filePath string, kustomizationFile *KustomizationFile) ([]string, error) {
 
 	definedResources := []string{}
 	definedResources = append(definedResources, kustomizationFile.Resources...)
 	definedResources = append(definedResources, kustomizationFile.Patches...)
 	definedResources = append(definedResources, kustomizationFile.PatchesStrategicMerge...)
 
-	fileUtility := &afero.Afero{Fs: loader.FileSystem}
-	directoryInfo, err := fileUtility.ReadDir(loader.Path)
+	fileUtility := &afero.Afero{Fs: k.fileSystem}
+	directoryInfo, err := fileUtility.ReadDir(filePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Could not read directory %s", loader.Path)
+		return nil, errors.Wrapf(err, "Could not read directory %s", filePath)
 	}
 
 	missingResources := []string{}
