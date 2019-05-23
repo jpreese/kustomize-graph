@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/jpreese/kustomize-graph/pkg/graph"
-	"github.com/jpreese/kustomize-graph/pkg/kustomize"
+	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
 
 func main() {
@@ -16,13 +16,9 @@ func main() {
 		return
 	}
 
-	kustomizationFile, err := kustomize.NewKustomizationFile().Get(workingDirectory)
-	if err != nil {
-		log.Fatal("Unable to get kustomization.yaml file from directory %s", workingDirectory)
-		return
-	}
+	kustomizeFileLoader := kustomizationfile.New(workingDirectory)
 
-	dependencyGraph, err := graph.GenerateKustomizeGraph(graph.New(), kustomizationFile)
+	dependencyGraph, err := graph.GenerateKustomizeGraph(kustomizeFileLoader)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
