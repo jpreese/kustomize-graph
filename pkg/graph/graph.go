@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"fmt"
 
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
@@ -33,17 +34,15 @@ func NewGraph() *gographviz.Graph {
 }
 
 // GenerateKustomizeGraph generates a dependency graph starting from the root path
-func GenerateKustomizeGraph(rootPath string) (string, error) {
+func GenerateKustomizeGraph(k KustomizationFileGetter, rootPath string) (*gographviz.Graph, error) {
 
 	g := NewGraph()
-	kustomizationContext := kustomizationfile.Context()
-
-	err := traverseKustomizeStructure(g, kustomizationContext, rootPath, "")
+	err := traverseKustomizeStructure(g, k, rootPath, "")
 	if err != nil {
-		return "", errors.Wrapf(err, "Could not produce graph from directory %s", rootPath)
+		return nil, errors.Wrapf(err, "Could not produce graph from directory %s", rootPath)
 	}
 
-	return g.String(), nil
+	return g, nil
 }
 
 func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath string, previousNode string) error {
@@ -69,8 +68,14 @@ func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath 
 	// to build out all of the resources present in the base yaml and any
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
-		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
-		traverseKustomizeStructure(g, k, absoluteBasePath, newNode)
+
+		resolveBasePath, err := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
+		fmt.Printf("base path resolved to %v\n", resolveBasePath)
+		if err != nil {
+			return errors.Wrapf(err, "Could not resolve base path from base %s and current path %s", base, currentPath)
+		}
+
+		traverseKustomizeStructure(g, k, resolveBasePath, newNode)
 	}
 
 	return nil

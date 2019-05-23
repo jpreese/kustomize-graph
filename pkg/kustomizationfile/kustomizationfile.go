@@ -23,12 +23,19 @@ type kustomizationFileContext struct {
 	fileSystem afero.Fs
 }
 
-// Context returns the context to interact with kustomization files
-func Context() *kustomizationFileContext {
+// DefaultContext returns the context to interact with kustomization files
+func DefaultContext() *kustomizationFileContext {
 	defaultFileSystem := afero.NewOsFs()
 
 	return &kustomizationFileContext{
 		fileSystem: defaultFileSystem,
+	}
+}
+
+// ContextFromFileSystem returns a context based on the given filesystem
+func ContextFromFileSystem(fileSystem afero.Fs) *kustomizationFileContext {
+	return &kustomizationFileContext{
+		fileSystem: fileSystem,
 	}
 }
 
