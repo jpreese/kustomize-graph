@@ -16,7 +16,7 @@ type KustomizationFile struct {
 	Patches               []string `yaml:"patches"`
 	PatchesStrategicMerge []string `yaml:"patchesStrategicMerge"`
 
-	MissingResources      []string
+	MissingResources []string
 }
 
 type kustomizationFileContext struct {
