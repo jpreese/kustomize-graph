@@ -56,7 +56,8 @@ bases:
 	baseKustomizationFileContents := ""
 	afero.WriteFile(fakeFileSystem, "app/base/kustomization.yaml", []byte(baseKustomizationFileContents), 0644)
 
-	graph, err := GenerateKustomizeGraph(kustomizationfile.ContextFromFileSystem(fakeFileSystem), "app")
+	graph := NewGraph()
+	err = traverseKustomizeStructure(graph, kustomizationfile.ContextFromFileSystem(fakeFileSystem), "app", "")
 	if err != nil {
 		t.Fatalf("Could not generate graph %v", err)
 	}

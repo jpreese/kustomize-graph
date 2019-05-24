@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"os"
 
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
@@ -32,16 +33,23 @@ func NewGraph() *gographviz.Graph {
 	return graph
 }
 
-// GenerateKustomizeGraph generates a dependency graph starting from the root path
-func GenerateKustomizeGraph(k KustomizationFileGetter, rootPath string) (*gographviz.Graph, error) {
+// GenerateKustomizeGraph generates a dependency graph from the working directory
+func GenerateKustomizeGraph() (*gographviz.Graph, error) {
 
-	g := NewGraph()
-	err := traverseKustomizeStructure(g, k, rootPath, "")
+	workingDirectory, err := os.Getwd()
 	if err != nil {
-		return nil, errors.Wrapf(err, "Could not produce graph from directory %s", rootPath)
+		return nil, errors.Wrapf(err, "Unable to get current working directory")
 	}
 
-	return g, nil
+	dependencyGraph := NewGraph()
+	kustomizationFileContext := kustomizationfile.DefaultContext()
+
+	err = traverseKustomizeStructure(dependencyGraph, kustomizationFileContext, workingDirectory, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "Could not produce graph from directory %s", workingDirectory)
+	}
+
+	return dependencyGraph, nil
 }
 
 func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath string, previousNode string) error {
