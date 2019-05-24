@@ -66,7 +66,6 @@ func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, err
 }
 
 func (k *kustomizationFileContext) getMissingResources(filePath string, kustomizationFile *KustomizationFile) ([]string, error) {
-
 	definedResources := []string{}
 	definedResources = append(definedResources, kustomizationFile.Resources...)
 	definedResources = append(definedResources, kustomizationFile.Patches...)
@@ -80,7 +79,6 @@ func (k *kustomizationFileContext) getMissingResources(filePath string, kustomiz
 
 	missingResources := []string{}
 	for _, info := range directoryInfo {
-
 		if info.IsDir() {
 			continue
 		}
@@ -90,7 +88,6 @@ func (k *kustomizationFileContext) getMissingResources(filePath string, kustomiz
 			continue
 		}
 
-		// Ignore the kustomization file itself
 		if info.Name() == "kustomization.yaml" {
 			continue
 		}
