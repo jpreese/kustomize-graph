@@ -23,12 +23,19 @@ type kustomizationFileContext struct {
 	fileSystem afero.Fs
 }
 
-// Context returns the context to interact with kustomization files
-func Context() *kustomizationFileContext {
+// DefaultContext returns the context to interact with kustomization files
+func DefaultContext() *kustomizationFileContext {
 	defaultFileSystem := afero.NewOsFs()
 
 	return &kustomizationFileContext{
 		fileSystem: defaultFileSystem,
+	}
+}
+
+// ContextFromFileSystem returns a context based on the given filesystem
+func ContextFromFileSystem(fileSystem afero.Fs) *kustomizationFileContext {
+	return &kustomizationFileContext{
+		fileSystem: fileSystem,
 	}
 }
 
@@ -58,8 +65,6 @@ func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, err
 	return &kustomizationFile, nil
 }
 
-// GetMissingResources finds all of the resources that exist in the folder
-// but are not explicitly defined in the kustomization.yaml file
 func (k *kustomizationFileContext) getMissingResources(filePath string, kustomizationFile *KustomizationFile) ([]string, error) {
 
 	definedResources := []string{}

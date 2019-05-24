@@ -33,17 +33,15 @@ func NewGraph() *gographviz.Graph {
 }
 
 // GenerateKustomizeGraph generates a dependency graph starting from the root path
-func GenerateKustomizeGraph(rootPath string) (string, error) {
+func GenerateKustomizeGraph(k KustomizationFileGetter, rootPath string) (*gographviz.Graph, error) {
 
 	g := NewGraph()
-	kustomizationContext := kustomizationfile.Context()
-
-	err := traverseKustomizeStructure(g, kustomizationContext, rootPath, "")
+	err := traverseKustomizeStructure(g, k, rootPath, "")
 	if err != nil {
-		return "", errors.Wrapf(err, "Could not produce graph from directory %s", rootPath)
+		return nil, errors.Wrapf(err, "Could not produce graph from directory %s", rootPath)
 	}
 
-	return g.String(), nil
+	return g, nil
 }
 
 func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath string, previousNode string) error {
@@ -69,8 +67,15 @@ func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath 
 	// to build out all of the resources present in the base yaml and any
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
-		absoluteBasePath, _ := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
-		traverseKustomizeStructure(g, k, absoluteBasePath, newNode)
+		resolveBasePath := path.Join(currentPath, filepath.Clean(base))
+		if err != nil {
+			return errors.Wrapf(err, "Could not resolve base path from base %s and current path %s", base, currentPath)
+		}
+
+		err = traverseKustomizeStructure(g, k, resolveBasePath, newNode)
+		if err != nil {
+			return errors.Wrapf(err, "Error while traversing kustomize structure")
+		}
 	}
 
 	return nil
@@ -100,7 +105,8 @@ func getNodeLabelFromMissingResources(filePath string, missingResources []string
 		return missingResourcesLabel
 	}
 
-	nodeLabel := "\"" + filepath.ToSlash(filePath) + "\\n\\n"
+	missingPath := filepath.ToSlash(filepath.Clean(filePath))
+	nodeLabel := "\"" + missingPath + "\\n\\n"
 	nodeLabel += "missing:\\n"
 	nodeLabel += strings.Join(missingResources, "\\n")
 	nodeLabel += "\""
@@ -111,6 +117,8 @@ func getNodeLabelFromMissingResources(filePath string, missingResources []string
 }
 
 func sanitizePathForDot(path string) string {
+
+	path = filepath.Clean(path)
 	path = "\"" + path + "\""
 	path = filepath.ToSlash(path)
 
