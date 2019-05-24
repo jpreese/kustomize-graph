@@ -14,5 +14,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Print(dependencyGraph.String())
+	fmt.Print(dependencyGraph)
 }
