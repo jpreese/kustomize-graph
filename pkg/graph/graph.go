@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"fmt"
 	"github.com/awalterschulze/gographviz"
 	"github.com/pkg/errors"
 	"path"
@@ -68,9 +67,7 @@ func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath 
 	// to build out all of the resources present in the base yaml and any
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
-
-		resolveBasePath, err := filepath.Abs(path.Join(currentPath, strings.TrimPrefix(base, "./")))
-		fmt.Printf("base path resolved to %v\n", resolveBasePath)
+		resolveBasePath, err := filepath.Abs(path.Join(currentPath, filepath.Clean(base)))
 		if err != nil {
 			return errors.Wrapf(err, "Could not resolve base path from base %s and current path %s", base, currentPath)
 		}

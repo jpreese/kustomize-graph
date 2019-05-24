@@ -65,8 +65,6 @@ func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, err
 	return &kustomizationFile, nil
 }
 
-// GetMissingResources finds all of the resources that exist in the folder
-// but are not explicitly defined in the kustomization.yaml file
 func (k *kustomizationFileContext) getMissingResources(filePath string, kustomizationFile *KustomizationFile) ([]string, error) {
 
 	definedResources := []string{}

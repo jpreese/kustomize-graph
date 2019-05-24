@@ -3,11 +3,11 @@ package graph
 import (
 	"testing"
 
-	"github.com/spf13/afero"
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
+	"github.com/spf13/afero"
 )
 
-// TestGraph tests creating a graph using different ways 
+// TestGraph tests creating a graph using different ways
 // that a base kustomization file can be referenced:
 //
 // - ./singledot
@@ -62,14 +62,14 @@ bases:
 	}
 
 	// Verify all of the expected nodes are present in the graph
-	expectedNodes := []string{ 
+	expectedNodes := []string{
 		wrapElement("app"),
 		wrapElement("app/same"),
 		wrapElement("app/middle"),
 		wrapElement("app/base"),
 	}
 	for _, node := range expectedNodes {
-		if(!graph.IsNode(node)) {
+		if !graph.IsNode(node) {
 			t.Fatalf("Expected node %v was not found. Nodes are %v. FileSystem was %v", node, graph.Nodes, fakeFileSystem)
 		}
 	}
