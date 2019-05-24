@@ -27,10 +27,10 @@ func TestGraph(t *testing.T) {
 	//   └── kustomization.yaml
 	//
 
-	fakeFileSystem := afero.NewBasePathFs(afero.NewMemMapFs(), "/app/same/lol")
+	fakeFileSystem := afero.NewMemMapFs()
 
 	// Setup app folder kustomization file
-	err := fakeFileSystem.MkdirAll("/tmp/app", 0755)
+	err := fakeFileSystem.Mkdir("app", 0755)
 	appKustomizationFileContents := `
 bases:
 - same
@@ -41,7 +41,7 @@ bases:
 	// Setup same folder kustomization file
 	fakeFileSystem.Mkdir("app/same", 0755)
 	sameKustomizationFileContents := ""
-	afero.WriteFile(fakeFileSystem, "/app/same/kustomization.yaml", []byte(sameKustomizationFileContents), 0644)
+	afero.WriteFile(fakeFileSystem, "app/same/kustomization.yaml", []byte(sameKustomizationFileContents), 0644)
 
 	// Setup middle folder kustomization file
 	fakeFileSystem.Mkdir("app/middle", 0755)
@@ -49,14 +49,14 @@ bases:
 bases:
 - ../base
 `
-	afero.WriteFile(fakeFileSystem, "/app/middle/kustomization.yaml", []byte(middleKustomizationFileContents), 0644)
+	afero.WriteFile(fakeFileSystem, "app/middle/kustomization.yaml", []byte(middleKustomizationFileContents), 0644)
 
 	// Setup base folder kustomization file
 	fakeFileSystem.Mkdir("app/base", 0755)
 	baseKustomizationFileContents := ""
-	afero.WriteFile(fakeFileSystem, "/app/base/kustomization.yaml", []byte(baseKustomizationFileContents), 0644)
+	afero.WriteFile(fakeFileSystem, "app/base/kustomization.yaml", []byte(baseKustomizationFileContents), 0644)
 
-	graph, err := GenerateKustomizeGraph(kustomizationfile.ContextFromFileSystem(fakeFileSystem), "/app")
+	graph, err := GenerateKustomizeGraph(kustomizationfile.ContextFromFileSystem(fakeFileSystem), "app")
 	if err != nil {
 		t.Fatalf("Could not generate graph %v", err)
 	}

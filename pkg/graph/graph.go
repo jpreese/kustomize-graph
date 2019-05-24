@@ -67,7 +67,7 @@ func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath 
 	// to build out all of the resources present in the base yaml and any
 	// other potential bases.
 	for _, base := range kustomizationFile.Bases {
-		resolveBasePath, err := filepath.Abs(path.Join(currentPath, filepath.Clean(base)))
+		resolveBasePath := path.Join(currentPath, filepath.Clean(base))
 		if err != nil {
 			return errors.Wrapf(err, "Could not resolve base path from base %s and current path %s", base, currentPath)
 		}
@@ -105,7 +105,8 @@ func getNodeLabelFromMissingResources(filePath string, missingResources []string
 		return missingResourcesLabel
 	}
 
-	nodeLabel := "\"" + filepath.ToSlash(filePath) + "\\n\\n"
+	missingPath := filepath.ToSlash(filepath.Clean(filePath))
+	nodeLabel := "\"" + missingPath + "\\n\\n"
 	nodeLabel += "missing:\\n"
 	nodeLabel += strings.Join(missingResources, "\\n")
 	nodeLabel += "\""
@@ -116,6 +117,8 @@ func getNodeLabelFromMissingResources(filePath string, missingResources []string
 }
 
 func sanitizePathForDot(path string) string {
+
+	path = filepath.Clean(path)
 	path = "\"" + path + "\""
 	path = filepath.ToSlash(path)
 
