@@ -11,11 +11,15 @@ import (
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
 
+// REVIEW NOTE: Method receiver pros/cons with passing around an interface
 type kustomizationGraph struct {
 	*gographviz.Graph
 }
 
 // KustomizationFileGetter loads an environment to get kustomization files from
+// REVIEW NOTE: Is it possible to revisit setting the path in the context and use that?
+// If going the route of two contexts.. maybe JUST Graph has the notion of Path?
+// Adding to this.. could then maybe move missing resources back here.
 type KustomizationFileGetter interface {
 	Get(filePath string) (*kustomizationfile.KustomizationFile, error)
 }
@@ -42,6 +46,9 @@ func GenerateKustomizeGraph() (string, error) {
 	}
 
 	graph := NewGraph("main")
+
+	// REVIEW NOTE: This guy here. Shouldn't necessarily depend on a kustomization
+	// file context, but rather its own context
 	kustomizationFileContext := kustomizationfile.DefaultContext()
 
 	err = graph.buildGraph(kustomizationFileContext, workingDirectory, "")
@@ -51,6 +58,16 @@ func GenerateKustomizeGraph() (string, error) {
 
 	return graph.String(), nil
 }
+
+// REVIEW NOTE: Consider some construct that is responsible for loading all of the
+// kustomization files that will be required to build the graph. Then build graph
+// will use that construct to actually build it, without needing a filesystem.
+
+// Graph could either have its own filesystem injection OR the packages need to 
+// be merged.
+
+// Graph may not need to depend on a filesystem, ultimately just want a collection
+// of files... (** though the files themselves contains paths...)
 
 func (g *kustomizationGraph) buildGraph(k KustomizationFileGetter, currentPath string, previousNode string) error {
 	kustomizationFile, err := k.Get(currentPath)

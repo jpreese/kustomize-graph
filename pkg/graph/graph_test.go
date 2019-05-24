@@ -1,4 +1,4 @@
-package graph
+package graph // should probably just rename this to kustomizationgraph
 
 import (
 	"testing"

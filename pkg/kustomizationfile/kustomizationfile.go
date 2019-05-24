@@ -16,9 +16,13 @@ type KustomizationFile struct {
 	Patches               []string `yaml:"patches"`
 	PatchesStrategicMerge []string `yaml:"patchesStrategicMerge"`
 
+	// REVIEW NOTE: Try to see if its possible to split this out again
+	// into own method when given a kustomization file and a path.
 	MissingResources []string
 }
 
+// REVIEW NOTE: This same approach could be used for Graph.
+// KustomizationFile and Graph should probably be different packages.
 type kustomizationFileContext struct {
 	fileSystem afero.Fs
 }
@@ -40,8 +44,14 @@ func ContextFromFileSystem(fileSystem afero.Fs) *kustomizationFileContext {
 }
 
 // Get attempts to read a kustomization.yaml file
-func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, error) {
+// REVIEW NOTE: Attempt to split out this method so that the file system can be
+// injected in another private method
+func (k *kustomizationFileContext) Get() (*KustomizationFile, error) {
 	var kustomizationFile KustomizationFile
+
+	// REVIEW NOTE: Kustomize actually looks for .yml, .yaml, and Kustomization
+	// We should update this to search for one of these three files. If more than one
+	// exists throw an error.
 	kustomizationFilePath := filepath.ToSlash(path.Join(filePath, "kustomization.yaml"))
 
 	fileUtility := &afero.Afero{Fs: k.fileSystem}
@@ -84,10 +94,12 @@ func (k *kustomizationFileContext) getMissingResources(filePath string, kustomiz
 		}
 
 		// Only consider the resource missing if it is a yaml file
+		// REVIEW NOTE: Should also ignore yml and Kustomization files
 		if filepath.Ext(info.Name()) != ".yaml" {
 			continue
 		}
 
+		// 
 		if info.Name() == "kustomization.yaml" {
 			continue
 		}
