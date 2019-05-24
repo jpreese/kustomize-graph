@@ -1,12 +1,12 @@
 package graph
 
 import (
+	"fmt"
 	"github.com/awalterschulze/gographviz"
 	"github.com/pkg/errors"
 	"path"
 	"path/filepath"
 	"strings"
-	"fmt"
 
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
@@ -75,7 +75,10 @@ func traverseKustomizeStructure(g Graph, k KustomizationFileGetter, currentPath 
 			return errors.Wrapf(err, "Could not resolve base path from base %s and current path %s", base, currentPath)
 		}
 
-		traverseKustomizeStructure(g, k, resolveBasePath, newNode)
+		err = traverseKustomizeStructure(g, k, resolveBasePath, newNode)
+		if err != nil {
+			return errors.Wrapf(err, "Error while traversing kustomize structure")
+		}
 	}
 
 	return nil
