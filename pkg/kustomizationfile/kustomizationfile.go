@@ -15,36 +15,64 @@ type KustomizationFile struct {
 	Resources             []string `yaml:"resources"`
 	Patches               []string `yaml:"patches"`
 	PatchesStrategicMerge []string `yaml:"patchesStrategicMerge"`
+}
 
-	MissingResources []string
+// KustomizationFileNames represents a list of allowed filenames that
+// kustomize searches for
+var KustomizationFileNames = []string {
+	"kustomization.yaml",
+	"kustomization.yml",
+	"Kustomization",
 }
 
 type kustomizationFileContext struct {
 	fileSystem afero.Fs
 }
 
-// DefaultContext returns the context to interact with kustomization files
-func DefaultContext() *kustomizationFileContext {
+// New returns a new context to interact with kustomization files
+func New() *kustomizationFileContext {
 	defaultFileSystem := afero.NewOsFs()
 
-	return &kustomizationFileContext{
-		fileSystem: defaultFileSystem,
-	}
+	return NewFromFileSystem(defaultFileSystem)
 }
 
-// ContextFromFileSystem returns a context based on the given filesystem
-func ContextFromFileSystem(fileSystem afero.Fs) *kustomizationFileContext {
+// NewFromFileSystem creates a context to interact with kustomization files from a provided file system
+func NewFromFileSystem(fileSystem afero.Fs) *kustomizationFileContext {
 	return &kustomizationFileContext{
 		fileSystem: fileSystem,
 	}
 }
 
-// Get attempts to read a kustomization.yaml file
-func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, error) {
+// GetFromDirectory attempts to read a kustomization.yaml file from the given directory
+func (k *kustomizationFileContext) GetFromDirectory(directoryPath string) (*KustomizationFile, error) {
 	var kustomizationFile KustomizationFile
-	kustomizationFilePath := filepath.ToSlash(path.Join(filePath, "kustomization.yaml"))
 
 	fileUtility := &afero.Afero{Fs: k.fileSystem}
+
+	fileFoundCount := 0
+	kustomizationFilePath := ""
+	for _, kustomizationFile := range KustomizationFileNames {
+		currentPath := path.Join(directoryPath, kustomizationFile)
+
+		exists, err := fileUtility.Exists(currentPath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Could not check if file %v exists", currentPath)
+		}
+
+		if exists {
+			kustomizationFilePath = currentPath
+			fileFoundCount++
+		}
+	}
+
+	if kustomizationFilePath == "" {
+		return nil, errors.Wrapf(errors.New("Missing kustomization file"), "Directory %v did not contain a valid kustomization file", directoryPath)
+	}
+
+	if fileFoundCount > 1 {
+		return nil, errors.Wrapf(errors.New("Too many kustomization files"), "Directory %v contained more than one kustomization file", directoryPath)
+	}
+
 	kustomizationFileBytes, err := fileUtility.ReadFile(kustomizationFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not read file %s", kustomizationFilePath)
@@ -55,26 +83,21 @@ func (k *kustomizationFileContext) Get(filePath string) (*KustomizationFile, err
 		return nil, errors.Wrapf(err, "Could not unmarshal yaml file %s", kustomizationFilePath)
 	}
 
-	missingResources, err := k.getMissingResources(filePath, &kustomizationFile)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Could not get missing resources in path %s", kustomizationFilePath)
-	}
-
-	kustomizationFile.MissingResources = missingResources
-
 	return &kustomizationFile, nil
 }
 
-func (k *kustomizationFileContext) getMissingResources(filePath string, kustomizationFile *KustomizationFile) ([]string, error) {
+// GetMissingResources returns a collection of resources that exist in the directory
+// but are not defined in the given kustomization file
+func (k *kustomizationFileContext) GetMissingResources(directoryPath string, kustomizationFile *KustomizationFile) ([]string, error) {
 	definedResources := []string{}
 	definedResources = append(definedResources, kustomizationFile.Resources...)
 	definedResources = append(definedResources, kustomizationFile.Patches...)
 	definedResources = append(definedResources, kustomizationFile.PatchesStrategicMerge...)
 
 	fileUtility := &afero.Afero{Fs: k.fileSystem}
-	directoryInfo, err := fileUtility.ReadDir(filePath)
+	directoryInfo, err := fileUtility.ReadDir(directoryPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Could not read directory %s", filePath)
+		return nil, errors.Wrapf(err, "Could not read directory %s", directoryPath)
 	}
 
 	missingResources := []string{}
@@ -88,7 +111,8 @@ func (k *kustomizationFileContext) getMissingResources(filePath string, kustomiz
 			continue
 		}
 
-		if info.Name() == "kustomization.yaml" {
+		// Ignore the kustomization files
+		if existsInSlice(KustomizationFileNames, info.Name()) {
 			continue
 		}
 

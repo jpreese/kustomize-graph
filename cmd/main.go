@@ -2,17 +2,15 @@ package main
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/jpreese/kustomize-graph/pkg/graph"
+	"github.com/jpreese/kustomize-graph/pkg/kustomizationgraph"
 )
 
 func main() {
-	dependencyGraph, err := graph.GenerateKustomizeGraph()
+	graph, err := kustomizationgraph.New("main").Generate()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		panic(err)
 	}
 
-	fmt.Print(dependencyGraph)
+	fmt.Print(graph)
 }
