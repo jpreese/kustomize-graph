@@ -1,7 +1,7 @@
 # kustomize-graph
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/jpreese/kustomize-graph)](https://goreportcard.com/report/github.com/jpreese/kustomize-graph)
-[![GoDoc](https://godoc.org/github.com/jpreese/kustomize-graph/pkg/graph?status.svg)](https://godoc.org/github.com/jpreese/kustomize-graph/pkg/graph)
+[![GoDoc](https://godoc.org/github.com/jpreese/kustomize-graph/pkg/graph?status.svg)](https://godoc.org/github.com/jpreese/kustomize-graph/pkg/kustomizationgraph)
 [![GitHub release](https://img.shields.io/github/release/jpreese/kustomize-graph.svg)](https://github.com/jpreese/kustomize-graph/releases)
 
 `kustomize-graph` is a tool that will generate a dependency graph of your kustomize structure.
