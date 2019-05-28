@@ -4,11 +4,11 @@
 [![GoDoc](https://godoc.org/github.com/jpreese/kustomize-graph/pkg/graph?status.svg)](https://godoc.org/github.com/jpreese/kustomize-graph/pkg/kustomizationgraph)
 [![GitHub release](https://img.shields.io/github/release/jpreese/kustomize-graph.svg)](https://github.com/jpreese/kustomize-graph/releases)
 
-`kustomize-graph` is a tool that will generate a dependency graph of your kustomize structure.
+`kustomize-graph` is a tool that will generate a dependency graph of your [kustomize](https://github.com/kubernetes-sigs/kustomize) structure.
 
 ## Install
 
-Builds are available on the [releases](https://github.com/jpreese/kustomize-graph/releases) page. 
+Builds are available on the [releases](https://github.com/jpreese/kustomize-graph/releases) page.
 
 ## Usage
 
