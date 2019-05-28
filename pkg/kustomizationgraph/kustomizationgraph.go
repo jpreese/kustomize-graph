@@ -8,13 +8,11 @@ import (
 	"strings"
 	"os"
 
-	"github.com/spf13/afero"
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
 
 type kustomizationGraph struct {
 	*gographviz.Graph
-	fileSystem afero.Fs
 }
 
 // KustomizationFileGetter gets kustomization files and kustomization file metadata
@@ -23,21 +21,14 @@ type KustomizationFileGetter interface {
 	GetMissingResources(directoryPath string, kustomizationFile *kustomizationfile.KustomizationFile) ([]string, error)
 }
 
-// New creates an unpopulated graph with the given name
+// New creates an unpopulated graph with the given name using the given filesystem
 func New(graphName string) *kustomizationGraph {
-	defaultFileSystem := afero.NewOsFs()
-	return NewFromFileSystem(defaultFileSystem, graphName)
-}
-
-// NewFromFileSystem creates an unpopulated graph with the given name using the given filesystem
-func NewFromFileSystem(fileSystem afero.Fs, graphName string) *kustomizationGraph {
 	defaultGraph := gographviz.NewGraph()
 	defaultGraph.SetName(graphName)
 	defaultGraph.Directed = true
 
 	graph := &kustomizationGraph {
 		Graph: defaultGraph,
-		fileSystem: fileSystem,
 	}
 
 	return graph
@@ -51,7 +42,7 @@ func (g *kustomizationGraph) Generate() (string, error) {
 		return "", errors.Wrapf(err, "Unable to get current working directory")
 	}
 
-	kustomizationFileContext := kustomizationfile.NewFromFileSystem(g.fileSystem)
+	kustomizationFileContext := kustomizationfile.New()
 	
 	err = g.buildGraph(kustomizationFileContext, workingDirectory, "")
 	if err != nil {

@@ -55,9 +55,9 @@ bases:
 	baseKustomizationFileContents := ""
 	afero.WriteFile(fakeFileSystem, "app/base/kustomization.yaml", []byte(baseKustomizationFileContents), 0644)
 
-	graphContext := NewFromFileSystem(fakeFileSystem, "main")
+	graphContext := New("main")
 	kustomizationFileContext := kustomizationfile.NewFromFileSystem(fakeFileSystem)
-	
+
 	err = graphContext.buildGraph(kustomizationFileContext, "app", "")
 	if err != nil {
 		t.Fatalf("Could not generate graph %v.", err)
