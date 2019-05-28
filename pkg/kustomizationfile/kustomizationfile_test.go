@@ -7,14 +7,51 @@ import (
 	"github.com/spf13/afero"
 )
 
-// TestGet tests the Get method to validate that the kustomization
+// TestNoKustomizationFiles tests to validate that when no kustomization files
+// are found, an error is returned
+func TestNoKustomizationFiles(t *testing.T) {
+	// Folder structure for this test
+	//
+	//   /app
+
+	fakeFileSystem := afero.NewMemMapFs()
+	fakeFileSystem.Mkdir("app", 0755)
+	_, err := NewFromFileSystem(fakeFileSystem).GetFromDirectory("app")
+
+	if err == nil {
+		t.Errorf("Expected error when reading directory that contains no kustomization files")
+	}
+}
+
+// TestMultipleKustomizationFiles tests to validate that when multiple kustomization files
+// are found, an error is returned
+func TestMultipleKustomizationFiles(t *testing.T) {
+	// Folder structure for this test
+	//
+	//   /app
+	//   ├── kustomization.yaml
+	//   └── kustomization.yml
+
+	fakeFileSystem := afero.NewMemMapFs()
+	fakeFileSystem.Mkdir("app", 0755)
+	emptyFileContents := ""
+
+	afero.WriteFile(fakeFileSystem, "app/kustomization.yaml", []byte(emptyFileContents), 0644)
+	afero.WriteFile(fakeFileSystem, "app/kustomization.yml", []byte(emptyFileContents), 0644)
+	_, err := NewFromFileSystem(fakeFileSystem).GetFromDirectory("app")
+
+	if err == nil {
+		t.Errorf("Expected error when reading directory that contains multiple kustomization files")
+	}
+}
+
+// TestGetFromDirectory tests the GetFromDirectory method to validate that the kustomization
 // yaml file was marshaled correctly from the provided path
-func TestGet(t *testing.T) {
+func TestGetFromDirectory(t *testing.T) {
 	// Folder structure for this test
 	//
 	//   /app
 	//   └── kustomization.yaml
-	//
 
 	fakeFileSystem := afero.NewMemMapFs()
 	fakeFileSystem.Mkdir("app", 0755)
