@@ -1,10 +1,10 @@
-package graph // should probably just rename this to kustomizationgraph
+package kustomizationgraph
 
 import (
 	"testing"
 
-	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 	"github.com/spf13/afero"
+	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
 
 // TestGraph tests creating a graph using different ways
@@ -55,10 +55,12 @@ bases:
 	baseKustomizationFileContents := ""
 	afero.WriteFile(fakeFileSystem, "app/base/kustomization.yaml", []byte(baseKustomizationFileContents), 0644)
 
-	graph := NewGraph("main")
-	err = graph.buildGraph(kustomizationfile.ContextFromFileSystem(fakeFileSystem), "app", "")
+	graphContext := NewFromFileSystem(fakeFileSystem, "main")
+	kustomizationFileContext := kustomizationfile.NewFromFileSystem(fakeFileSystem)
+	
+	err = graphContext.buildGraph(kustomizationFileContext, "app", "")
 	if err != nil {
-		t.Fatalf("Could not build graph %v.", err)
+		t.Fatalf("Could not generate graph %v.", err)
 	}
 
 	// Verify all of the expected nodes are present in the graph
@@ -69,13 +71,13 @@ bases:
 		wrapElement("app/base"),
 	}
 	for _, node := range expectedNodes {
-		if !graph.IsNode(node) {
+		if !graphContext.IsNode(node) {
 			t.Errorf("Expected node %v was not found", node)
 		}
 	}
 
 	// Verify all of the expected edges are present and their directions are correct
-	appFolderEdges := graph.Edges.SrcToDsts[wrapElement("app")]
+	appFolderEdges := graphContext.Edges.SrcToDsts[wrapElement("app")]
 	if _, exists := appFolderEdges[wrapElement("app/middle")]; !exists {
 		t.Errorf("Expected edge [app -> app/middle] was not found")
 	}
@@ -83,7 +85,7 @@ bases:
 		t.Errorf("Expected edge [app -> app/same] was not found")
 	}
 
-	middleFolderEdges := graph.Edges.SrcToDsts[wrapElement("app/middle")]
+	middleFolderEdges := graphContext.Edges.SrcToDsts[wrapElement("app/middle")]
 	if _, exists := middleFolderEdges[wrapElement("app/base")]; !exists {
 		t.Errorf("Expected edge [app/middle -> app/base] was not found")
 	}

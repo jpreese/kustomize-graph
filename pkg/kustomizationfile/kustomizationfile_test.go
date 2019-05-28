@@ -24,7 +24,7 @@ resources:
 - a.yaml
 `
 	afero.WriteFile(fakeFileSystem, "app/kustomization.yaml", []byte(fileContents), 0644)
-	kustomizationFile, _ := ContextFromFileSystem(fakeFileSystem).Get("app")
+	kustomizationFile, _ := NewFromFileSystem(fakeFileSystem).GetFromDirectory("app")
 
 	expected := "a.yaml"
 	actual := kustomizationFile.Resources[0]
@@ -49,12 +49,17 @@ func TestGetMissingResources(t *testing.T) {
 	afero.WriteFile(fakeFileSystem, "app/kustomization.yaml", []byte(""), 0644)
 	afero.WriteFile(fakeFileSystem, "app/excluded.yaml", []byte(""), 0644)
 
-	kustomizationFile, err := ContextFromFileSystem(fakeFileSystem).Get("app")
+	kustomizationFileContext := NewFromFileSystem(fakeFileSystem)
+	kustomizationFile, err := kustomizationFileContext.GetFromDirectory("app")
 	if err != nil {
 		t.Fatalf("An error occured while getting kustomization file %v", err)
 	}
+	
+	actual, err := kustomizationFileContext.GetMissingResources("app", kustomizationFile)
+	if err != nil {
+		t.Fatalf("An error occured while getting missing resources %v", err)
+	}
 
-	actual := kustomizationFile.MissingResources
 	expected := []string{"excluded.yaml"}
 
 	if reflect.DeepEqual(actual, expected) == false {

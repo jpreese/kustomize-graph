@@ -1,4 +1,4 @@
-package graph
+package kustomizationgraph
 
 import (
 	"github.com/awalterschulze/gographviz"
@@ -8,74 +8,71 @@ import (
 	"strings"
 	"os"
 
+	"github.com/spf13/afero"
 	"github.com/jpreese/kustomize-graph/pkg/kustomizationfile"
 )
 
-// REVIEW NOTE: Method receiver pros/cons with passing around an interface
 type kustomizationGraph struct {
 	*gographviz.Graph
+	fileSystem afero.Fs
 }
 
-// KustomizationFileGetter loads an environment to get kustomization files from
-// REVIEW NOTE: Is it possible to revisit setting the path in the context and use that?
-// If going the route of two contexts.. maybe JUST Graph has the notion of Path?
-// Adding to this.. could then maybe move missing resources back here.
+// KustomizationFileGetter gets kustomization files and kustomization file metadata
 type KustomizationFileGetter interface {
-	Get(filePath string) (*kustomizationfile.KustomizationFile, error)
+	GetFromDirectory(directoryPath string) (*kustomizationfile.KustomizationFile, error)
+	GetMissingResources(directoryPath string, kustomizationFile *kustomizationfile.KustomizationFile) ([]string, error)
 }
 
-// NewGraph creates an unpopulated graph with the given name
-func NewGraph(graphName string) *kustomizationGraph {
+// New creates an unpopulated graph with the given name
+func New(graphName string) *kustomizationGraph {
+	defaultFileSystem := afero.NewOsFs()
+	return NewFromFileSystem(defaultFileSystem, graphName)
+}
+
+// NewFromFileSystem creates an unpopulated graph with the given name using the given filesystem
+func NewFromFileSystem(fileSystem afero.Fs, graphName string) *kustomizationGraph {
 	defaultGraph := gographviz.NewGraph()
 	defaultGraph.SetName(graphName)
 	defaultGraph.Directed = true
 
 	graph := &kustomizationGraph {
 		Graph: defaultGraph,
+		fileSystem: fileSystem,
 	}
 
 	return graph
 }
 
-// GenerateKustomizeGraph returns a DOT graph based on the dependencies
+// Generate returns a DOT graph based on the dependencies
 // from the kustomization.yaml file located in the current working directory
-func GenerateKustomizeGraph() (string, error) {
+func (g *kustomizationGraph) Generate() (string, error) {
 	workingDirectory, err := os.Getwd()
 	if err != nil {
 		return "", errors.Wrapf(err, "Unable to get current working directory")
 	}
 
-	graph := NewGraph("main")
-
-	// REVIEW NOTE: This guy here. Shouldn't necessarily depend on a kustomization
-	// file context, but rather its own context
-	kustomizationFileContext := kustomizationfile.DefaultContext()
-
-	err = graph.buildGraph(kustomizationFileContext, workingDirectory, "")
+	kustomizationFileContext := kustomizationfile.NewFromFileSystem(g.fileSystem)
+	
+	err = g.buildGraph(kustomizationFileContext, workingDirectory, "")
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not produce graph from directory %s", workingDirectory)
 	}
 
-	return graph.String(), nil
+	return g.String(), nil
 }
 
-// REVIEW NOTE: Consider some construct that is responsible for loading all of the
-// kustomization files that will be required to build the graph. Then build graph
-// will use that construct to actually build it, without needing a filesystem.
-
-// Graph could either have its own filesystem injection OR the packages need to 
-// be merged.
-
-// Graph may not need to depend on a filesystem, ultimately just want a collection
-// of files... (** though the files themselves contains paths...)
-
 func (g *kustomizationGraph) buildGraph(k KustomizationFileGetter, currentPath string, previousNode string) error {
-	kustomizationFile, err := k.Get(currentPath)
+	kustomizationFile, err := k.GetFromDirectory(currentPath)
 	if err != nil {
 		return errors.Wrapf(err, "Could not get kustomization file")
 	}
 
-	node, err := g.addNodeToGraph(currentPath, kustomizationFile)
+	missingResources, err := k.GetMissingResources(currentPath, kustomizationFile)
+	if err != nil {
+		return errors.Wrapf(err, "Could not get kustomization file missing resources")
+	}
+
+	node, err := g.addNodeToGraph(currentPath, missingResources)
 	if err != nil {
 		return errors.Wrapf(err, "Could not create node from path %s", currentPath)
 	}
@@ -102,14 +99,13 @@ func (g *kustomizationGraph) buildGraph(k KustomizationFileGetter, currentPath s
 	return nil
 }
 
-func (g *kustomizationGraph) addNodeToGraph(pathToAdd string, kustomizationFile *kustomizationfile.KustomizationFile) (string, error) {
+func (g *kustomizationGraph) addNodeToGraph(pathToAdd string, missingResources []string) (string, error) {
 	node := sanitizePathForDot(pathToAdd)
 	if g.IsNode(node) {
 		return node, nil
 	}
 
-	nodeLabel := getNodeLabelFromMissingResources(pathToAdd, kustomizationFile.MissingResources)
-
+	nodeLabel := getNodeLabel(pathToAdd, missingResources)
 	err := g.AddNode(g.Name, node, nodeLabel)
 	if err != nil {
 		return "", errors.Wrapf(err, "Could not add node %s", node)
@@ -118,7 +114,7 @@ func (g *kustomizationGraph) addNodeToGraph(pathToAdd string, kustomizationFile 
 	return node, nil
 }
 
-func getNodeLabelFromMissingResources(filePath string, missingResources []string) map[string]string {
+func getNodeLabel(filePath string, missingResources []string) map[string]string {
 	missingResourcesLabel := make(map[string]string)
 	if len(missingResources) == 0 {
 		return missingResourcesLabel
