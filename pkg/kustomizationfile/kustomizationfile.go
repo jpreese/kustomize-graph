@@ -66,11 +66,11 @@ func (k *kustomizationFileContext) GetFromDirectory(directoryPath string) (*Kust
 	}
 
 	if kustomizationFilePath == "" {
-		return nil, errors.Wrapf(errors.New("Missing kustomization file"), "Directory %v did not contain a valid kustomization file", directoryPath)
+		return nil, errors.Wrapf(errors.New("Missing kustomization file"), "Error in directory %v", directoryPath)
 	}
 
 	if fileFoundCount > 1 {
-		return nil, errors.Wrapf(errors.New("Too many kustomization files"), "Directory %v contained more than one kustomization file", directoryPath)
+		return nil, errors.Wrapf(errors.New("Too many kustomization files"), "Error in directory %v", directoryPath)
 	}
 
 	kustomizationFileBytes, err := fileUtility.ReadFile(kustomizationFilePath)
