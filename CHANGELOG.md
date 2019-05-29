@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.0
+
+- Add kustomization.yml and Kustomization as allowed kustomization files
+
 ## v1.2.0
 
 - Added missing resource feature (see [README.md](README.md))
